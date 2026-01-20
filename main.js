@@ -5,6 +5,7 @@ const gameState = {
     maxChapter: 3, // 최대 챕터
     postersCollected: 0, // 수집한 포스터 수
     totalPostersPerChapter: 5, // 챕터당 포스터 수
+    currentPosterIndex: 0, // 현재 포스터 인덱스 (0부터 시작)
     moveSpeed: 5,
     isRunning: false,
     isPaused: false,
@@ -212,7 +213,8 @@ function createObstacle() {
 
 // 포스터 초기 생성
 function createInitialPosters() {
-    // 챕터 시작 시 1개의 포스터만 생성
+    // 챕터 시작 시 첫 번째 포스터만 생성
+    gameState.currentPosterIndex = 0;
     createPoster();
 }
 
@@ -231,14 +233,21 @@ function createPoster() {
     poster.style.left = randomX + 'px';
     poster.style.bottom = randomY + 'px';
     
-    // 챕터별 포스터 이미지 설정
+    // 챕터별 포스터 이미지 설정 (순서대로)
+    let posterImageName;
     if (gameState.chapter === 1) {
-        poster.style.backgroundImage = 'url("poster.jpg")';
+        if (gameState.currentPosterIndex === 0) {
+            posterImageName = 'poster.jpg'; // 첫 번째는 poster.jpg
+        } else {
+            posterImageName = `poster${gameState.currentPosterIndex + 1}.jpg`; // poster2.jpg ~ poster5.jpg
+        }
     } else if (gameState.chapter === 2) {
-        poster.style.backgroundImage = 'url("poster2.jpg")';
+        posterImageName = `poster${gameState.currentPosterIndex + 6}.jpg`; // poster6.jpg ~ poster10.jpg
     } else if (gameState.chapter === 3) {
-        poster.style.backgroundImage = 'url("poster.jpg")';
+        posterImageName = `poster${gameState.currentPosterIndex + 11}.jpg`; // poster11.jpg ~ poster15.jpg
     }
+    
+    poster.style.backgroundImage = `url("${posterImageName}")`;
     
     gameCanvas.appendChild(poster);
     
@@ -251,7 +260,8 @@ function createPoster() {
         y: randomY,
         width: 40,
         height: 60,
-        data: posterDataItem
+        data: posterDataItem,
+        imageName: posterImageName
     };
     
     gameState.posters.push(posterObj);
@@ -268,14 +278,20 @@ function createPortal() {
     portal.className = 'portal';
     portal.style.left = portalX + 'px';
     portal.style.bottom = portalY + 'px';
+    portal.style.backgroundImage = 'url("mo.png")';
+    portal.style.backgroundSize = 'contain';
+    portal.style.backgroundPosition = 'center';
+    portal.style.backgroundRepeat = 'no-repeat';
+    portal.style.border = 'none';
+    portal.style.outline = 'none';
     gameCanvas.appendChild(portal);
     
     gameState.portal = {
         element: portal,
         x: portalX,
         y: portalY,
-        width: 60,
-        height: 80
+        width: 140,
+        height: 200
     };
 }
 
@@ -342,15 +358,72 @@ function getPlatformData(chapter) {
 function createPlatforms() {
     const platformData = getPlatformData(gameState.chapter);
     
-    platformData.forEach(platform => {
+    platformData.forEach((platform, index) => {
         const platformEl = document.createElement('div');
         platformEl.className = 'platform';
         
-        // 챕터별 플랫폼 색상
+        // 챕터별 플랫폼 설정
         if (gameState.chapter === 1) {
-            platformEl.classList.add('platform-red');
+            // 챕터 1: 이미지 사용, 테두리 없음
+            platformEl.classList.add('platform-chapter1');
+            
+            // 플랫폼별 이미지 설정
+            let platformImage;
+            if (index === 0 || index === 1 || index === 5) {
+                // 플랫폼 1번, 2번, 6번
+                platformImage = '170.png';
+            } else {
+                // 플랫폼 3번, 4번, 5번
+                platformImage = '150.png';
+            }
+            
+            platformEl.style.backgroundImage = `url("${platformImage}")`;
+            platformEl.style.backgroundSize = '100% 100%';
+            platformEl.style.backgroundPosition = 'center';
+            platformEl.style.backgroundRepeat = 'no-repeat';
+            platformEl.style.border = 'none';
+            platformEl.style.boxShadow = 'none';
+            platformEl.style.borderRadius = '0';
         } else if (gameState.chapter === 2) {
-            platformEl.classList.add('platform-yellow');
+            // 챕터 2: 이미지 사용, 테두리 없음
+            platformEl.classList.add('platform-chapter2');
+            
+            // 플랫폼별 이미지 설정
+            let platformImage;
+            if (index === 0 || index === 1 || index === 4 || index === 5 || index === 6) {
+                // 플랫폼 1번, 2번, 5번, 6번, 7번
+                platformImage = '140.png';
+            } else if (index === 2 || index === 3) {
+                // 플랫폼 3번, 4번
+                platformImage = '130.png';
+            } else {
+                // 플랫폼 8번
+                platformImage = '300.png';
+            }
+            
+            platformEl.style.backgroundImage = `url("${platformImage}")`;
+            platformEl.style.backgroundSize = '100% 100%';
+            platformEl.style.backgroundPosition = 'center';
+            platformEl.style.backgroundRepeat = 'no-repeat';
+            platformEl.style.border = 'none';
+            platformEl.style.boxShadow = 'none';
+            platformEl.style.borderRadius = '0';
+        } else if (gameState.chapter === 3) {
+            // 챕터 3: 알록달록하게
+            platformEl.classList.add('platform-chapter3');
+            
+            // 알록달록한 밝은 색상
+            const colorfulColors = [
+                '#FF6B9D', '#FFB84D', '#FFE66D', '#95E1D3', '#AA96DA',
+                '#FCBAD3', '#A8E6CF', '#FFD3A5', '#C7CEEA', '#FFAAA5', '#B4E7CE'
+            ];
+            
+            const selectedColor = colorfulColors[index % colorfulColors.length];
+            platformEl.style.setProperty('background-color', selectedColor, 'important');
+            platformEl.style.setProperty('background', selectedColor, 'important');
+            platformEl.style.border = 'none';
+            platformEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+            platformEl.style.borderRadius = '8px';
         }
         
         platformEl.style.left = platform.x + 'px';
@@ -893,20 +966,68 @@ function collectPoster(poster) {
     gameState.isPaused = true;
     posterTitle.textContent = "포스터";
     
-    // 챕터별 포스터 이미지 설정
-    if (gameState.chapter === 1) {
-        posterImage.src = "poster.jpg";
-    } else if (gameState.chapter === 2) {
-        posterImage.src = "poster2.jpg";
-    } else if (gameState.chapter === 3) {
-        posterImage.src = "poster.jpg";
+    // 수집한 포스터의 이미지 사용
+    const posterImageName = poster.imageName || 'poster.jpg';
+    posterImage.src = posterImageName;
+    
+    // 포스터 설명 문구 매핑
+    let posterText = "포스터를 획득했습니다!";
+    switch (posterImageName) {
+        case 'poster.jpg':
+            posterText = "1930-40년대, 2010년대 이후의 도쿄 사진으로 도쿄라는 도시를 알아보는 전시";
+            break;
+        case 'poster2.jpg':
+            posterText = "경북대미술관, 국립군산대미술관, 제주대박물관이 ‘가족’이라는 대주제로 연합하여 기획한 옴니버스식 전시";
+            break;
+        case 'poster3.jpg':
+            posterText = "지속가능한 공존을 바탕으로 기후행동을 감정의 영역으로 움직여보고 재인식하고자 기획된 전시";
+            break;
+        case 'poster4.jpg':
+            posterText = "사회가 '모두의 평등한 권리와 공존'이라는 가치를 향해 나아가고 있는지 살펴보고자 기획된 전시";
+            break;
+        case 'poster5.jpg':
+            posterText = "당장 눈앞의 미래도 알 수 없는 인간의 삶을 성찰하고 앞으로 나아갈 방향을 다루는 전시";
+            break;
+        case 'poster6.jpg':
+            posterText = "벨기에 출신의 다큐멘터리 사진작가 프레데릭 벅스의 개인전으로, 키르기스스탄 유목민들의 숭고한 삶을 담아낸 전시";
+            break;
+        case 'poster7.jpg':
+            posterText = "재개발로 인한 도시 환경의 간극을 문화예술에서 답을 찾고자 하는 전시";
+            break;
+        case 'poster8.jpg':
+            posterText = "영화라는 예술이 만들어지는 과정을 엿보고 준비과정에서의 자료들이 창작의 부산물이 아닌 하나의 사료로서의 가치를 부각하고자 기획된 전시";
+            break;
+        case 'poster9.jpg':
+            posterText = "가볍고 웃음을 유발하는 농담의 일반적인 속성 이면에 우리가 보지 못했던 새로운 가치를 발견하고자 기획된 전시";
+            break;
+        case 'poster10.jpg':
+            posterText = "청소년 문화 기준 가장 영향력 있는 시각대중매체인 일본만화에서 소녀만화를 기준으로, 역사적•문화적 역할을 크게 3세대로 구분하여 젠더 이슈를 건들이는 전시";
+            break;
+        case 'poster11.jpg':
+            posterText = "독일의 일러스트 동화작가 요크 힐버트를 초청하여 아이들에게 다양한 상상력을 키워주는 전시, 어른들에게는 동심으로 돌아갈 수 있도록 기획된 전시";
+            break;
+        case 'poster12.jpg':
+            posterText = "우키요에를 통해 일본인이 사랑하는 일본의 절경과 일본인이 사랑한 한국의 절경을 볼 수 있도록 기획된 전시";
+            break;
+        case 'poster13.jpg':
+            posterText = "우리의 땅 독도의 의미를 되새기고 독도에 대한 이해가 깊어지도록 기획된 전시";
+            break;
+        case 'poster14.jpg':
+            posterText = "부산근대영화사를 집필하신 홍영철 선생님께서 모은 프랑스 영화 자료를 소개하여 옛날 그 시절 향수를 일깨우고자 기획된 전시";
+            break;
+        case 'poster15.jpg':
+            posterText = "격변하는 독일의 현대사 속에서 냉소적이고 사회비판적인 메세지와 경쾌한 위트를 결합하여 공업적인 재료로 표현한 시그마 폴케의 개인전";
+            break;
+        default:
+            break;
     }
     
     posterImage.alt = "포스터";
-    posterDescription.textContent = "포스터를 획득했습니다!";
+    posterDescription.textContent = posterText;
     posterModal.classList.remove('hidden');
     gameState.score += 50;
     gameState.postersCollected++;
+    gameState.currentPosterIndex++;
     scoreElement.textContent = `점수: ${gameState.score} | 챕터: ${gameState.chapter} | 포스터: ${gameState.postersCollected}/${gameState.totalPostersPerChapter}`;
     
     // 하나 먹으면 하나 생김 (5개 도달 전까지)
@@ -992,8 +1113,14 @@ function updateElevators() {
 function setChapterBackground() {
     const gameContainer = document.getElementById('gameContainer');
     
-    // 모든 챕터에 ba.jpg 배경 적용
-    gameContainer.style.backgroundImage = 'url("ba.jpg")';
+    // 챕터별 배경 설정
+    if (gameState.chapter === 1) {
+        gameContainer.style.backgroundImage = 'url("ba.png")';
+    } else if (gameState.chapter === 2) {
+        gameContainer.style.backgroundImage = 'url("ba2.png")';
+    } else {
+        gameContainer.style.backgroundImage = 'url("ba.jpg")';
+    }
     gameContainer.style.backgroundColor = '#FFB6C1';
     gameContainer.style.backgroundSize = 'cover';
     gameContainer.style.backgroundPosition = 'center';
@@ -1010,6 +1137,7 @@ function nextChapter() {
     
     gameState.chapter++;
     gameState.postersCollected = 0;
+    gameState.currentPosterIndex = 0;
     
     // 기존 요소 제거
     gameState.obstacles.forEach(obs => obs.element.remove());
@@ -1064,7 +1192,7 @@ function closePosterModal() {
     posterModal.classList.add('hidden');
     gameState.isPaused = false;
     
-    // 새 포스터 생성 (5개 미만일 때만)
+    // 다음 포스터 생성 (5개 미만일 때만)
     if (gameState.shouldCreatePoster) {
         createPoster();
         gameState.shouldCreatePoster = false;
@@ -1086,6 +1214,7 @@ function startGame() {
     gameState.score = 0;
     gameState.chapter = 1;
     gameState.postersCollected = 0;
+    gameState.currentPosterIndex = 0;
     gameState.shouldCreatePoster = false;
     gameState.isRunning = true;
     gameState.isPaused = false;

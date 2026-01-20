@@ -376,6 +376,24 @@ body {
     filter: blur(1px);
 }
 
+/* 챕터 1: 이미지 플랫폼 (테두리 없음) */
+.platform-chapter1 {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.platform-chapter1::before {
+    display: none !important;
+    content: none !important;
+}
+
+.platform-chapter1::after {
+    display: none !important;
+    content: none !important;
+}
+
 /* 챕터 1: 흙에 이끼 낀 플랫폼 (약간 밝은 이끼) */
 .platform-red {
     background: linear-gradient(180deg, 
@@ -403,6 +421,40 @@ body {
 
 .platform-red::after {
     background: rgba(30, 20, 10, 0.5) !important;
+}
+
+/* 챕터 2: 이미지 플랫폼 (테두리 없음) */
+.platform-chapter2 {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.platform-chapter2::before {
+    display: none !important;
+    content: none !important;
+}
+
+.platform-chapter2::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* 챕터 3: 밝은 색상 플랫폼 */
+.platform-chapter3 {
+    border: none !important;
+    border-radius: 8px !important;
+}
+
+.platform-chapter3::before {
+    display: none !important;
+    content: none !important;
+}
+
+.platform-chapter3::after {
+    display: none !important;
+    content: none !important;
 }
 
 /* 챕터 2: 흙에 이끼 낀 플랫폼 (진한 이끼) */
@@ -548,36 +600,22 @@ body {
 /* 포탈 스타일 */
 .portal {
     position: absolute;
-    width: 60px;
-    height: 80px;
-    background: radial-gradient(circle, #9D50BB 0%, #6E48AA 50%, #4B0082 100%);
-    border: 3px solid #FFD700;
-    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    width: 140px;
+    height: 200px;
+    background: none;
+    border: none;
+    outline: none;
     z-index: 6;
     animation: portalAnimation 2s ease-in-out infinite;
-    box-shadow: 0 0 30px rgba(157, 80, 187, 0.8),
-                inset 0 0 20px rgba(255, 255, 255, 0.3);
-}
-
-.portal::before {
-    content: '⭐';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 32px;
-    animation: spin 3s linear infinite;
 }
 
 @keyframes portalAnimation {
     0%, 100% {
-        box-shadow: 0 0 30px rgba(157, 80, 187, 0.8),
-                    inset 0 0 20px rgba(255, 255, 255, 0.3);
+        box-shadow: none;
         transform: scale(1);
     }
     50% {
-        box-shadow: 0 0 50px rgba(157, 80, 187, 1),
-                    inset 0 0 30px rgba(255, 255, 255, 0.5);
+        box-shadow: none;
         transform: scale(1.05);
     }
 }
