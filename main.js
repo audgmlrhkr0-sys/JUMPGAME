@@ -115,13 +115,13 @@ function updatePlayerPosition() {
 
 // 장애물 생성 및 초기화
 function createInitialObstacles() {
-    // 장애물 타입 배열 생성 (1~6 순환)
+    // 장애물 타입 배열 생성 (1~9 순환)
     const obstacleTypes = [];
     const platformCount = gameState.platforms.length - (gameState.chapter === 3 ? 1 : 0);
     
-    // 6개 타입을 균등하게 분배
+    // 9개 타입을 균등하게 분배
     for (let i = 0; i < platformCount; i++) {
-        obstacleTypes.push((i % 6) + 1);
+        obstacleTypes.push((i % 9) + 1);
     }
     
     // 배열 섞기 (랜덤 배치)
@@ -153,7 +153,7 @@ function createObstacleOnPlatform(platform, obstacleType = null) {
     const obstacle = document.createElement('div');
     
     // obstacleType이 지정되지 않으면 랜덤으로 선택
-    const imageNum = obstacleType || (Math.floor(Math.random() * 6) + 1);
+    const imageNum = obstacleType || (Math.floor(Math.random() * 9) + 1);
     console.log('Creating obstacle with image:', `go${imageNum}.png`);
     
     obstacle.className = 'obstacle-img';
@@ -409,20 +409,14 @@ function createPlatforms() {
             platformEl.style.boxShadow = 'none';
             platformEl.style.borderRadius = '0';
         } else if (gameState.chapter === 3) {
-            // 챕터 3: 알록달록하게
+            // 챕터 3: 투명한 유리 질감의 하늘톤
             platformEl.classList.add('platform-chapter3');
             
-            // 알록달록한 밝은 색상
-            const colorfulColors = [
-                '#FF6B9D', '#FFB84D', '#FFE66D', '#95E1D3', '#AA96DA',
-                '#FCBAD3', '#A8E6CF', '#FFD3A5', '#C7CEEA', '#FFAAA5', '#B4E7CE'
-            ];
-            
-            const selectedColor = colorfulColors[index % colorfulColors.length];
-            platformEl.style.setProperty('background-color', selectedColor, 'important');
-            platformEl.style.setProperty('background', selectedColor, 'important');
-            platformEl.style.border = 'none';
-            platformEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+            // 투명한 유리 질감의 하늘톤 색상
+            platformEl.style.backgroundColor = 'rgba(173, 216, 230, 0.4)';
+            platformEl.style.backdropFilter = 'blur(10px)';
+            platformEl.style.border = '1px solid rgba(173, 216, 230, 0.6)';
+            platformEl.style.boxShadow = '0 4px 15px rgba(173, 216, 230, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5)';
             platformEl.style.borderRadius = '8px';
         }
         
@@ -1119,7 +1113,7 @@ function setChapterBackground() {
     } else if (gameState.chapter === 2) {
         gameContainer.style.backgroundImage = 'url("ba2.png")';
     } else {
-        gameContainer.style.backgroundImage = 'url("ba.jpg")';
+        gameContainer.style.backgroundImage = 'url("ba3.png")';
     }
     gameContainer.style.backgroundColor = '#FFB6C1';
     gameContainer.style.backgroundSize = 'cover';
