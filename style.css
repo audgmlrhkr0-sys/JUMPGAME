@@ -443,11 +443,9 @@ body {
 
 /* 챕터 3: 투명한 유리 질감의 하늘톤 플랫폼 */
 .platform-chapter3 {
-    background: rgba(173, 216, 230, 0.4) !important;
-    backdrop-filter: blur(10px) !important;
-    border: 1px solid rgba(173, 216, 230, 0.6) !important;
+    background: none !important;
+    border: none !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 15px rgba(173, 216, 230, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
 }
 
 .platform-chapter3::before {
