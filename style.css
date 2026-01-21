@@ -441,11 +441,13 @@ body {
     content: none !important;
 }
 
-/* 챕터 3: 투명한 유리 질감의 하늘톤 플랫폼 */
+/* 챕터 3: 이미지 플랫폼 */
 .platform-chapter3 {
     background: none !important;
+    background-color: transparent !important;
     border: none !important;
-    border-radius: 8px !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
 .platform-chapter3::before {

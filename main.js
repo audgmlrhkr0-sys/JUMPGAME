@@ -409,15 +409,30 @@ function createPlatforms() {
             platformEl.style.boxShadow = 'none';
             platformEl.style.borderRadius = '0';
         } else if (gameState.chapter === 3) {
-            // 챕터 3: 투명한 유리 질감의 하늘톤
+            // 챕터 3: 플랫폼 크기별 이미지 사용
             platformEl.classList.add('platform-chapter3');
             
-            // 투명한 유리 질감의 하늘톤 색상
-            platformEl.style.backgroundColor = 'rgba(173, 216, 230, 0.4)';
-            platformEl.style.backdropFilter = 'blur(10px)';
-            platformEl.style.border = '1px solid rgba(173, 216, 230, 0.6)';
-            platformEl.style.boxShadow = '0 4px 15px rgba(173, 216, 230, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5)';
-            platformEl.style.borderRadius = '8px';
+            // 플랫폼 너비에 따라 이미지 설정
+            let platformImage;
+            if (platform.width === 100) {
+                platformImage = '100.png';
+            } else if (platform.width === 110) {
+                platformImage = '110.png';
+            } else if (platform.width === 120) {
+                platformImage = '120.png';
+            } else if (platform.width === 160) {
+                platformImage = '160w.png';
+            }
+            
+            platformEl.style.setProperty('background-image', `url("${platformImage}")`, 'important');
+            platformEl.style.setProperty('background-size', '100% 100%', 'important');
+            platformEl.style.setProperty('background-position', 'center', 'important');
+            platformEl.style.setProperty('background-repeat', 'no-repeat', 'important');
+            platformEl.style.setProperty('background-color', 'transparent', 'important');
+            platformEl.style.setProperty('background', `url("${platformImage}")`, 'important');
+            platformEl.style.border = 'none';
+            platformEl.style.boxShadow = 'none';
+            platformEl.style.borderRadius = '0';
         }
         
         platformEl.style.left = platform.x + 'px';
