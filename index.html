@@ -8,14 +8,78 @@
 </head>
 <body>
     <div id="gameContainer">
+        <div id="startScreen">
+            <h1 id="gameTitle">경북대미술관 포스터를 모아라!</h1>
+            <button id="startBtn">START</button>
+            <div id="startInstructions">
+                <h3>조작 방법</h3>
+                <ul>
+                    <li>이동: ← → (방향키)</li>
+                    <li>점프: ↑ (방향키)</li>
+                    <li>포스터 줍기: Space (근처에서)</li>
+                    <li>다시하기: 게임 오버 화면의 ↻ 버튼</li>
+                </ul>
+            </div>
+        </div>
+        <div id="stageOverlay" class="hidden">
+            <div id="stageBox">
+                <div id="stageTitle"></div>
+                <div id="stageSubtitle"></div>
+            </div>
+        </div>
         <div id="score">점수: 0</div>
         <div id="gameCanvas"></div>
         <div id="gameOver" class="hidden">
-            <h2>게임 오버!</h2>
+            <h2 id="gameOverText">GAME OVER</h2>
             <p>최종 점수: <span id="finalScore">0</span></p>
-            <button id="restartBtn">다시 시작</button>
+            <button id="restartBtn">↻</button>
+        </div>
+        <!-- 포스터 갤러리 -->
+        <div id="posterGallery" class="hidden">
+            <div id="galleryBox">
+                <h2 id="galleryTitle">모든 포스터를 모았어요! 축하합니다!</h2>
+                <div id="galleryImageWrap">
+                    <img id="galleryImage" src="" alt="포스터 미리보기">
+                </div>
+                <p id="galleryDesc"></p>
+                <div class="gallery-controls">
+                    <button id="galleryPrev">←</button>
+                    <span id="galleryCounter">1/1</span>
+                    <button id="galleryNext">→</button>
+                </div>
+                <button id="galleryClose">처음으로</button>
+            </div>
         </div>
     </div>
+
+    <!-- 배경 음악 -->
+    <audio id="chapter1Music" loop>
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="chapter2Music" loop>
+        <source src="music2.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="chapter3Music" loop>
+        <source src="music3.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="stompSound">
+        <source src="ge.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="jumpSound">
+        <source src="jump.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="portalSound" loop>
+        <source src="po.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="viewSound">
+        <source src="vi.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="posterSound">
+        <source src="ge2.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="overSound">
+        <source src="over.mp3" type="audio/mpeg">
+    </audio>
 
     <!-- 포스터 모달 -->
     <div id="posterModal" class="modal hidden">

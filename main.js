@@ -29,7 +29,10 @@ const gameState = {
     gameLoop: null,
     isPressingDown: false, // S 키를 누르고 있는지
     canDropThrough: false, // 플랫폼 통과 가능 상태
-    facingDirection: 'left' // 플레이어가 바라보는 방향
+    facingDirection: 'left', // 플레이어가 바라보는 방향
+    collectedPosters: [],
+    sortedPosters: [],
+    galleryIndex: 0
 };
 
 // 포스터 데이터 (예시 - 실제 이미지 URL로 교체 가능)
@@ -67,12 +70,35 @@ const scoreElement = document.getElementById('score');
 const gameOverScreen = document.getElementById('gameOver');
 const finalScoreElement = document.getElementById('finalScore');
 const restartBtn = document.getElementById('restartBtn');
+const startScreen = document.getElementById('startScreen');
+const startBtn = document.getElementById('startBtn');
 const posterModal = document.getElementById('posterModal');
 const posterTitle = document.getElementById('posterTitle');
 const posterImage = document.getElementById('posterImage');
 const posterDescription = document.getElementById('posterDescription');
 const continueBtn = document.getElementById('continueBtn');
 const closeModal = document.querySelector('.close');
+const stageOverlay = document.getElementById('stageOverlay');
+const stageTitleEl = document.getElementById('stageTitle');
+const stageSubtitleEl = document.getElementById('stageSubtitle');
+const chapter1Music = document.getElementById('chapter1Music');
+const chapter2Music = document.getElementById('chapter2Music');
+const chapter3Music = document.getElementById('chapter3Music');
+const jumpSound = document.getElementById('jumpSound');
+const stompSound = document.getElementById('stompSound');
+const posterSound = document.getElementById('posterSound');
+const overSound = document.getElementById('overSound');
+const portalSound = document.getElementById('portalSound');
+const viewSound = document.getElementById('viewSound');
+const posterGallery = document.getElementById('posterGallery');
+const galleryImage = document.getElementById('galleryImage');
+const galleryDesc = document.getElementById('galleryDesc');
+const galleryPrev = document.getElementById('galleryPrev');
+const galleryNext = document.getElementById('galleryNext');
+const galleryClose = document.getElementById('galleryClose');
+const galleryCounter = document.getElementById('galleryCounter');
+
+// 사운드 초기 설정
 
 // 플레이어 생성
 function createPlayer() {
@@ -115,14 +141,14 @@ function updatePlayerPosition() {
 
 // 장애물 생성 및 초기화
 function createInitialObstacles() {
-    // 장애물 타입 배열 생성 (1~9 순환)
+    // 장애물 타입 배열 생성 (챕터별 이미지 세트 사용)
     const obstacleTypes = [];
     const platformCount = gameState.platforms.length - (gameState.chapter === 3 ? 1 : 0);
+    const obstacleSet = getObstacleImagesForChapter(gameState.chapter);
     
-    // 9개 타입을 균등하게 분배
-    for (let i = 0; i < platformCount; i++) {
-        obstacleTypes.push((i % 9) + 1);
-    }
+    // 1~9 전체 세트를 섞어가며 분배 (중복 최소화)
+    const queue = buildObstacleTypeQueue(platformCount, obstacleSet);
+    obstacleTypes.push(...queue);
     
     // 배열 섞기 (랜덤 배치)
     for (let i = obstacleTypes.length - 1; i > 0; i--) {
@@ -152,8 +178,9 @@ function createObstacleOnPlatform(platform, obstacleType = null) {
     
     const obstacle = document.createElement('div');
     
-    // obstacleType이 지정되지 않으면 랜덤으로 선택
-    const imageNum = obstacleType || (Math.floor(Math.random() * 9) + 1);
+    // obstacleType이 지정되지 않으면 챕터별 세트에서 랜덤으로 선택
+    const setForChapter = getObstacleImagesForChapter(gameState.chapter);
+    const imageNum = obstacleType || setForChapter[Math.floor(Math.random() * setForChapter.length)];
     console.log('Creating obstacle with image:', `go${imageNum}.png`);
     
     obstacle.className = 'obstacle-img';
@@ -189,6 +216,27 @@ function createObstacleOnPlatform(platform, obstacleType = null) {
     gameState.obstacles.push(obstacleData);
 }
 
+// 챕터별 장애물 이미지 세트
+function getObstacleImagesForChapter(chapter) {
+    // 모든 챕터에서 1~9를 고르게 사용
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9];
+}
+
+// 플랫폼 개수에 맞춰 장애물 타입 큐 생성 (중복 최소화)
+function buildObstacleTypeQueue(count, set) {
+    const result = [];
+    while (result.length < count) {
+        // 세트를 복제 후 섞어서 추가
+        const batch = [...set];
+        for (let i = batch.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [batch[i], batch[j]] = [batch[j], batch[i]];
+        }
+        result.push(...batch);
+    }
+    return result.slice(0, count);
+}
+
 // 장애물 생성 (포스터 수집 시 사용)
 function createObstacle() {
     // 빈 플랫폼 찾기
@@ -215,6 +263,8 @@ function createObstacle() {
 function createInitialPosters() {
     // 챕터 시작 시 첫 번째 포스터만 생성
     gameState.currentPosterIndex = 0;
+    gameState.collectedPosters = [];
+    gameState.galleryIndex = 0;
     createPoster();
 }
 
@@ -225,8 +275,23 @@ function createPoster() {
         possibleYPositions.push(platform.y + platform.height + 10);
     });
     
-    const randomY = possibleYPositions[Math.floor(Math.random() * possibleYPositions.length)];
-    const randomX = Math.random() * (800 - 40);
+    let randomY = possibleYPositions[Math.floor(Math.random() * possibleYPositions.length)];
+    let randomX = Math.random() * (800 - 40);
+    
+    // 장애물 위에 생성되지 않도록 위치 재시도
+    let attempts = 20;
+    while (attempts > 0) {
+        const overlaps = gameState.obstacles.some(obs => {
+            return randomX < obs.x + obs.width &&
+                   randomX + 40 > obs.x &&
+                   randomY < obs.y + obs.height &&
+                   randomY + 60 > obs.y;
+        });
+        if (!overlaps) break;
+        randomY = possibleYPositions[Math.floor(Math.random() * possibleYPositions.length)];
+        randomX = Math.random() * (800 - 40);
+        attempts--;
+    }
     
     const poster = document.createElement('div');
     poster.className = 'poster';
@@ -293,6 +358,14 @@ function createPortal() {
         width: 140,
         height: 200
     };
+    
+    // 포탈 사운드 재생
+    if (portalSound) {
+        portalSound.currentTime = 0;
+        portalSound.play().catch(err => {
+            console.log('포탈 사운드 재생 실패:', err);
+        });
+    }
 }
 
 // 포탈 제거
@@ -301,6 +374,8 @@ function removePortal() {
         gameState.portal.element.remove();
         gameState.portal = null;
     }
+    
+    stopPortalSound();
 }
 
 // 충돌 감지
@@ -424,12 +499,14 @@ function createPlatforms() {
                 platformImage = '160w.png';
             }
             
-            platformEl.style.setProperty('background-image', `url("${platformImage}")`, 'important');
+            const cacheBust = Date.now();
+            const platformSrc = `${platformImage}?v=${cacheBust}`;
+            platformEl.style.setProperty('background-image', `url("${platformSrc}")`, 'important');
             platformEl.style.setProperty('background-size', '100% 100%', 'important');
             platformEl.style.setProperty('background-position', 'center', 'important');
             platformEl.style.setProperty('background-repeat', 'no-repeat', 'important');
             platformEl.style.setProperty('background-color', 'transparent', 'important');
-            platformEl.style.setProperty('background', `url("${platformImage}")`, 'important');
+            platformEl.style.setProperty('background', `url("${platformSrc}")`, 'important');
             platformEl.style.border = 'none';
             platformEl.style.boxShadow = 'none';
             platformEl.style.borderRadius = '0';
@@ -474,7 +551,20 @@ function createHazardOnPlatform(platform) {
         const clampedX = Math.max(platform.x, Math.min(hazardX, platform.x + platform.width - hazardWidth));
         
         const hazardEl = document.createElement('div');
-        hazardEl.className = `hazard hazard-${platform.hazard}`;
+
+        // 챕터/유형별 위험 요소 스타일 매핑
+        let hazardClass = `hazard-${platform.hazard}`;
+        if (gameState.chapter === 1) {
+            if (platform.hazard === 'spikes') hazardClass = 'hazard-spikes-green';
+            else if (platform.hazard === 'electric') hazardClass = 'hazard-poison-green';
+        } else if (gameState.chapter === 2) {
+            if (platform.hazard === 'lava') hazardClass = 'hazard-lava-flat';
+        } else if (gameState.chapter === 3) {
+            if (platform.hazard === 'electric') hazardClass = 'hazard-spikes-blue';
+            else if (platform.hazard === 'poison') hazardClass = 'hazard-skull-blue';
+        }
+
+        hazardEl.className = `hazard ${hazardClass}`;
         hazardEl.style.left = clampedX + 'px';
         hazardEl.style.bottom = hazardY + 'px';
         hazardEl.style.width = hazardWidth + 'px';
@@ -687,10 +777,11 @@ function gameLoop() {
                 // 장애물 제거
                 obstacle.element.remove();
                 gameState.obstacles.splice(i, 1);
+                playStompSound();
                 
                 // 점수 증가
                 gameState.score += 50;
-                scoreElement.textContent = `점수: ${gameState.score} | 챕터: ${gameState.chapter} | 포스터: ${gameState.postersCollected}/${gameState.totalPostersPerChapter}`;
+                scoreElement.textContent = `점수: ${gameState.score} | 포스터: ${gameState.postersCollected}/${gameState.totalPostersPerChapter}`;
                 
                 // 작은 반동 효과
                 gameState.velocityY = 8;
@@ -973,7 +1064,7 @@ function collectNearbyPoster() {
 // 포스터 수집
 function collectPoster(poster) {
     gameState.isPaused = true;
-    posterTitle.textContent = "포스터";
+    posterTitle.textContent = "포스터 획득!";
     
     // 수집한 포스터의 이미지 사용
     const posterImageName = poster.imageName || 'poster.jpg';
@@ -983,49 +1074,64 @@ function collectPoster(poster) {
     let posterText = "포스터를 획득했습니다!";
     switch (posterImageName) {
         case 'poster.jpg':
-            posterText = "1930-40년대, 2010년대 이후의 도쿄 사진으로 도쿄라는 도시를 알아보는 전시";
+        case 'poster.png':
+            posterText = "1930-40년대, 2010년대 이후의 도쿄 사진으로 도시와 사진 표현의 변화를 다각도로 살펴보는 전시";
             break;
         case 'poster2.jpg':
-            posterText = "경북대미술관, 국립군산대미술관, 제주대박물관이 ‘가족’이라는 대주제로 연합하여 기획한 옴니버스식 전시";
+        case 'poster2.png':
+            posterText = "경북대미술관, 국립군산대미술관, 제주대박물관이 '가족'을 공동체 개념으로 확장해 기획한 옴니버스식 전시";
             break;
         case 'poster3.jpg':
-            posterText = "지속가능한 공존을 바탕으로 기후행동을 감정의 영역으로 움직여보고 재인식하고자 기획된 전시";
+        case 'poster3.png':
+            posterText = "기후위기 시대 미술(관)의 역할을 살펴보고 지속가능한 공존을 모색하는 전시";
             break;
         case 'poster4.jpg':
-            posterText = "사회가 '모두의 평등한 권리와 공존'이라는 가치를 향해 나아가고 있는지 살펴보고자 기획된 전시";
+        case 'poster4.png':
+            posterText = "학생과 주민이 참여한 배리어프리 프로젝트와 페스티벌로 모두의 공존과 권리를 실천하는 전시";
             break;
         case 'poster5.jpg':
+        case 'poster5.png':
             posterText = "당장 눈앞의 미래도 알 수 없는 인간의 삶을 성찰하고 앞으로 나아갈 방향을 다루는 전시";
             break;
         case 'poster6.jpg':
-            posterText = "벨기에 출신의 다큐멘터리 사진작가 프레데릭 벅스의 개인전으로, 키르기스스탄 유목민들의 숭고한 삶을 담아낸 전시";
+        case 'poster6.png':
+            posterText = "프레데릭 벅스의 사진으로 키르기스스탄 유목민의 숭고한 삶과 자연을 느낄 수 있는 전시";
             break;
         case 'poster7.jpg':
-            posterText = "재개발로 인한 도시 환경의 간극을 문화예술에서 답을 찾고자 하는 전시";
+        case 'poster7.png':
+            posterText = "재개발로 인한 도시 양극화에 관한 작품과 산격동 거주민의 이야기가 교차하는 개인과 도시의 기억 전시";
             break;
         case 'poster8.jpg':
-            posterText = "영화라는 예술이 만들어지는 과정을 엿보고 준비과정에서의 자료들이 창작의 부산물이 아닌 하나의 사료로서의 가치를 부각하고자 기획된 전시";
+        case 'poster8.png':
+            posterText = "다양한 장르 영상과 영화 제작 아카이브로 지역 독립영화를 체험하며 미술과 영화의 경계를 허무는 전시";
             break;
         case 'poster9.jpg':
-            posterText = "가볍고 웃음을 유발하는 농담의 일반적인 속성 이면에 우리가 보지 못했던 새로운 가치를 발견하고자 기획된 전시";
+        case 'poster9.png':
+            posterText = "웃음을 유발하는 농담의 새로운 가치를 발견하고 농담의 의미를 새롭게 바라보는 전시";
             break;
         case 'poster10.jpg':
-            posterText = "청소년 문화 기준 가장 영향력 있는 시각대중매체인 일본만화에서 소녀만화를 기준으로, 역사적•문화적 역할을 크게 3세대로 구분하여 젠더 이슈를 건들이는 전시";
+        case 'poster10.png':
+            posterText = "소녀만화가 수동적 이미지에서 여성의 열망을 반영하는 서사로 변화한 과정을 3세대로 구분해 조명하는 전시";
             break;
         case 'poster11.jpg':
-            posterText = "독일의 일러스트 동화작가 요크 힐버트를 초청하여 아이들에게 다양한 상상력을 키워주는 전시, 어른들에게는 동심으로 돌아갈 수 있도록 기획된 전시";
+        case 'poster11.png':
+            posterText = "요크 힐버트의 원화와 드로잉, 책, 애니메이션, 음악, 동화게임을 통해 아이와 어른 모두 상상력과 동심을 체험하는 전시";
             break;
         case 'poster12.jpg':
-            posterText = "우키요에를 통해 일본인이 사랑하는 일본의 절경과 일본인이 사랑한 한국의 절경을 볼 수 있도록 기획된 전시";
+        case 'poster12.png':
+            posterText = "[2012 한·일 우키요에전 - 우키요에로 보는 한·일 풍경] 일본인이 사랑한 일본과 한국의 절경을 우키요에로 소개하는 전시";
             break;
         case 'poster13.jpg':
-            posterText = "우리의 땅 독도의 의미를 되새기고 독도에 대한 이해가 깊어지도록 기획된 전시";
+        case 'poster13.png':
+            posterText = "독도의 역사와 의미를 고지도 속에서 되짚어보는 전시";
             break;
         case 'poster14.jpg':
-            posterText = "부산근대영화사를 집필하신 홍영철 선생님께서 모은 프랑스 영화 자료를 소개하여 옛날 그 시절 향수를 일깨우고자 기획된 전시";
+        case 'poster14.png':
+            posterText = "부산근대영화사의 저자 홍영철의 프랑스 영화 자료로 역사와 예술, 낭만을 느껴보는 전시";
             break;
         case 'poster15.jpg':
-            posterText = "격변하는 독일의 현대사 속에서 냉소적이고 사회비판적인 메세지와 경쾌한 위트를 결합하여 공업적인 재료로 표현한 시그마 폴케의 개인전";
+        case 'poster15.png':
+            posterText = "시그마 폴케의 재료와 양식적 실험이 집약된 과슈 작품을 소개하며, 격변하는 독일 현대미술의 실험정신을 보여주는 전시";
             break;
         default:
             break;
@@ -1033,11 +1139,19 @@ function collectPoster(poster) {
     
     posterImage.alt = "포스터";
     posterDescription.textContent = posterText;
+    continueBtn.textContent = "계속하기";
     posterModal.classList.remove('hidden');
+    playPosterSound();
     gameState.score += 50;
     gameState.postersCollected++;
     gameState.currentPosterIndex++;
-    scoreElement.textContent = `점수: ${gameState.score} | 챕터: ${gameState.chapter} | 포스터: ${gameState.postersCollected}/${gameState.totalPostersPerChapter}`;
+    scoreElement.textContent = `점수: ${gameState.score} | 포스터: ${gameState.postersCollected}/${gameState.totalPostersPerChapter}`;
+    
+    // 전체 수집 목록에 추가
+    gameState.collectedPosters.push({
+        image: posterImageName,
+        description: posterText
+    });
     
     // 하나 먹으면 하나 생김 (5개 도달 전까지)
     if (gameState.postersCollected < gameState.totalPostersPerChapter) {
@@ -1082,6 +1196,16 @@ function createElevators() {
     elevatorData.forEach(elev => {
         const elevator = document.createElement('div');
         elevator.className = 'elevator';
+        
+        // 챕터별 엘리베이터 색상 클래스 추가
+        if (gameState.chapter === 1) {
+            elevator.classList.add('elevator-chapter1');
+        } else if (gameState.chapter === 2) {
+            elevator.classList.add('elevator-chapter2');
+        } else if (gameState.chapter === 3) {
+            elevator.classList.add('elevator-chapter3');
+        }
+        
         elevator.style.left = elev.x + 'px';
         elevator.style.bottom = elev.currentY + 'px';
         elevator.style.width = elev.width + 'px';
@@ -1139,8 +1263,10 @@ function setChapterBackground() {
 function nextChapter() {
     if (gameState.chapter >= gameState.maxChapter) {
         // 게임 클리어
-        alert('축하합니다! 모든 챕터를 완료했습니다!');
-        startGame();
+        stopAllMusic();
+        stopPortalSound();
+        playViewSound();
+        showPosterGallery();
         return;
     }
     
@@ -1164,6 +1290,9 @@ function nextChapter() {
     
     // 챕터별 배경 설정
     setChapterBackground();
+    
+    // 챕터별 음악 재생
+    playMusicForChapter(gameState.chapter);
     
     // 새 플랫폼 생성
     createPlatforms();
@@ -1193,7 +1322,10 @@ function nextChapter() {
     createInitialObstacles();
     createInitialPosters();
     
-    scoreElement.textContent = `점수: ${gameState.score} | 챕터: ${gameState.chapter} | 포스터: 0/${gameState.totalPostersPerChapter}`;
+    scoreElement.textContent = `점수: ${gameState.score} | 포스터: 0/${gameState.totalPostersPerChapter}`;
+    
+    // 스테이지 인트로 표시
+    showStageIntro(gameState.chapter);
 }
 
 // 모달 닫기
@@ -1211,14 +1343,34 @@ function closePosterModal() {
 // 게임 종료
 function endGame() {
     gameState.isRunning = false;
+    // 배경 음악 즉시 정지
+    stopAllMusic();
+    
     finalScoreElement.textContent = gameState.score;
     gameOverScreen.classList.remove('hidden');
+    playOverSound();
     // 게임 루프는 계속 실행 (게임패드 입력 처리를 위해)
     // gameLoop에서 isRunning을 체크하므로 게임 로직은 실행되지 않음
 }
 
 // 게임 시작
 function startGame() {
+    // 시작 화면 숨기기
+    startScreen.classList.add('hidden');
+    gameCanvas.classList.remove('hidden');
+    if (posterGallery) posterGallery.classList.add('hidden');
+    
+    // 음악 정지 (게임 시작/재시작 시)
+    stopAllMusic();
+    stopPortalSound();
+    stopViewSound();
+    
+    // 포탈 사운드 정지
+    if (portalSound) {
+        portalSound.pause();
+        portalSound.currentTime = 0;
+    }
+    
     // 초기화
     gameState.score = 0;
     gameState.chapter = 1;
@@ -1241,7 +1393,7 @@ function startGame() {
     gameState.portal = null;
     
     // UI 초기화
-    scoreElement.textContent = `점수: 0 | 챕터: 1 | 포스터: 0/${gameState.totalPostersPerChapter}`;
+    scoreElement.textContent = `점수: 0 | 포스터: 0/${gameState.totalPostersPerChapter}`;
     gameOverScreen.classList.add('hidden');
     gameCanvas.innerHTML = '';
     
@@ -1261,11 +1413,45 @@ function startGame() {
     createInitialObstacles();
     createInitialPosters();
     
+    // 챕터 1 음악 재생
+    playMusicForChapter(gameState.chapter);
+    
+    // 스테이지 인트로 표시
+    showStageIntro(gameState.chapter);
+    
     // 게임 루프 시작
     if (gameState.gameLoop) {
         clearInterval(gameState.gameLoop);
     }
     gameState.gameLoop = setInterval(gameLoop, 16); // 약 60fps
+}
+
+// 초기 게임 화면 설정 (시작 화면에서 보이도록)
+function initializeGameScreen() {
+    // 게임 화면은 보이되 블러 처리될 예정
+    gameCanvas.classList.remove('hidden');
+    
+    // 초기화 (게임은 시작하지 않음)
+    gameState.isRunning = false;
+    gameState.chapter = 1;
+    gameCanvas.innerHTML = '';
+    
+    // 챕터별 배경 설정
+    setChapterBackground();
+    
+    // 플랫폼 생성
+    createPlatforms();
+    
+    // 엘리베이터 생성
+    createElevators();
+    
+    // 플레이어 생성 (움직이지 않음)
+    createPlayer();
+    
+    // 초기 장애물과 포스터 생성
+    createInitialObstacles();
+    createInitialPosters();
+    
 }
 
 // 키보드 입력
@@ -1322,7 +1508,185 @@ function performJump() {
         gameState.isJumping = true;
         gameState.isOnGround = false;
         gameState.velocityY = -gameState.jumpStrength;
+        playJumpSound();
     }
+}
+
+function playJumpSound() {
+    if (!jumpSound) return;
+    try {
+        jumpSound.currentTime = 0;
+        jumpSound.play().catch(() => {});
+    } catch (e) {
+        console.log('점프 사운드 재생 실패:', e);
+    }
+}
+
+function playStompSound() {
+    if (!stompSound) return;
+    try {
+        stompSound.currentTime = 0;
+        stompSound.play().catch(() => {});
+    } catch (e) {
+        console.log('장애물 밟기 사운드 재생 실패:', e);
+    }
+}
+
+function playPosterSound() {
+    if (!posterSound) return;
+    try {
+        posterSound.playbackRate = 3;
+        posterSound.currentTime = 0;
+        posterSound.play().catch(() => {});
+    } catch (e) {
+        console.log('포스터 사운드 재생 실패:', e);
+    }
+}
+
+function playOverSound() {
+    if (!overSound) return;
+    try {
+        overSound.volume = 1;
+        overSound.playbackRate = 1;
+        overSound.currentTime = 0;
+        overSound.play().catch(() => {});
+    } catch (e) {
+        console.log('게임 오버 사운드 재생 실패:', e);
+    }
+}
+
+// 포스터 갤러리
+function showPosterGallery() {
+    if (!posterGallery) return;
+    const galleryTitle = document.getElementById('galleryTitle');
+    if (galleryTitle) {
+        galleryTitle.textContent = '모든 포스터를 모았어요!';
+    }
+    gameState.isRunning = false;
+    gameState.isPaused = true;
+    gameState.galleryIndex = 0;
+    
+    // poster.jpg ~ poster15.jpg를 순서대로 준비 (수집 여부와 무관)
+    const posterOrder = [];
+    for (let i = 1; i <= 15; i++) {
+        const posterName = i === 1 ? 'poster.jpg' : `poster${i}.jpg`;
+        posterOrder.push({
+            image: posterName,
+            description: getPosterDescription(posterName)
+        });
+    }
+    gameState.sortedPosters = posterOrder;
+    
+    // 갤러리 사운드 재생
+    playViewSound();
+    
+    if (gameState.sortedPosters.length > 0) {
+        updatePosterGallery();
+    } else {
+        galleryImage.src = '';
+        galleryDesc.textContent = '수집한 포스터가 없습니다.';
+        galleryCounter.textContent = '0/0';
+    }
+    posterGallery.classList.remove('hidden');
+}
+
+function hidePosterGallery() {
+    posterGallery.classList.add('hidden');
+    stopViewSound();
+    startGame();
+}
+
+function updatePosterGallery() {
+    const sortedPosters = gameState.sortedPosters || gameState.collectedPosters;
+    const item = sortedPosters[gameState.galleryIndex];
+    if (!item) return;
+    galleryImage.src = item.image;
+    galleryDesc.textContent = item.description;
+    galleryCounter.textContent = `${gameState.galleryIndex + 1}/${sortedPosters.length}`;
+}
+
+function nextGalleryItem() {
+    const sortedPosters = gameState.sortedPosters || gameState.collectedPosters;
+    if (sortedPosters.length === 0) return;
+    gameState.galleryIndex = (gameState.galleryIndex + 1) % sortedPosters.length;
+    updatePosterGallery();
+}
+
+function prevGalleryItem() {
+    const sortedPosters = gameState.sortedPosters || gameState.collectedPosters;
+    if (sortedPosters.length === 0) return;
+    gameState.galleryIndex = (gameState.galleryIndex - 1 + sortedPosters.length) % sortedPosters.length;
+    updatePosterGallery();
+}
+
+function playViewSound() {
+    if (!viewSound) return;
+    try {
+        viewSound.loop = true;
+        if (viewSound.paused) {
+            viewSound.play().catch(() => {});
+        }
+    } catch (e) {
+        console.log('갤러리 사운드 재생 실패:', e);
+    }
+}
+
+// 포스터 설명 가져오기 (갤러리용)
+function getPosterDescription(posterImageName) {
+    const baseName = posterImageName.replace('.jpg', '').replace('.png', '');
+    const normalizedName = baseName === 'poster' ? 'poster.jpg' : `${baseName}.jpg`;
+    
+    let posterText = "포스터를 획득했습니다!";
+    switch (normalizedName) {
+        case 'poster.jpg':
+            posterText = "1930-40년대, 2010년대 이후의 도쿄 사진으로 도시와 사진 표현의 변화를 다각도로 살펴보는 전시";
+            break;
+        case 'poster2.jpg':
+            posterText = "경북대미술관, 국립군산대미술관, 제주대박물관이 '가족'을 공동체 개념으로 확장해 기획한 옴니버스식 전시";
+            break;
+        case 'poster3.jpg':
+            posterText = "기후위기 시대 미술(관)의 역할을 살펴보고 지속가능한 공존을 모색하는 전시";
+            break;
+        case 'poster4.jpg':
+            posterText = "학생과 주민이 참여한 배리어프리 프로젝트와 페스티벌로 모두의 공존과 권리를 실천하는 전시";
+            break;
+        case 'poster5.jpg':
+            posterText = "당장 눈앞의 미래도 알 수 없는 인간의 삶을 성찰하고 앞으로 나아갈 방향을 다루는 전시";
+            break;
+        case 'poster6.jpg':
+            posterText = "프레데릭 벅스의 사진으로 키르기스스탄 유목민의 숭고한 삶과 자연을 느낄 수 있는 전시";
+            break;
+        case 'poster7.jpg':
+            posterText = "재개발로 인한 도시 양극화에 관한 작품과 산격동 거주민의 이야기가 교차하는 개인과 도시의 기억 전시";
+            break;
+        case 'poster8.jpg':
+            posterText = "다양한 장르 영상과 영화 제작 아카이브로 지역 독립영화를 체험하며 미술과 영화의 경계를 허무는 전시";
+            break;
+        case 'poster9.jpg':
+            posterText = "웃음을 유발하는 농담의 새로운 가치를 발견하고 농담의 의미를 새롭게 바라보는 전시";
+            break;
+        case 'poster10.jpg':
+            posterText = "소녀만화가 수동적 이미지에서 여성의 열망을 반영하는 서사로 변화한 과정을 3세대로 구분해 조명하는 전시";
+            break;
+        case 'poster11.jpg':
+            posterText = "요크 힐버트의 원화와 드로잉, 책, 애니메이션, 음악, 동화게임을 통해 아이와 어른 모두 상상력과 동심을 체험하는 전시";
+            break;
+        case 'poster12.jpg':
+            posterText = "[2012 한·일 우키요에전 - 우키요에로 보는 한·일 풍경] 일본인이 사랑한 일본과 한국의 절경을 우키요에로 소개하는 전시";
+            break;
+        case 'poster13.jpg':
+            posterText = "독도의 역사와 의미를 고지도 속에서 되짚어보는 전시";
+            break;
+        case 'poster14.jpg':
+            posterText = "부산근대영화사의 저자 홍영철의 프랑스 영화 자료로 역사와 예술, 낭만을 느껴보는 전시";
+            break;
+        case 'poster15.jpg':
+            posterText = "시그마 폴케의 재료와 양식적 실험이 집약된 과슈 작품을 소개하며, 격변하는 독일 현대미술의 실험정신을 보여주는 전시";
+            break;
+        default:
+            break;
+    }
+    return posterText;
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1350,6 +1714,11 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         const gameOverScreen = document.getElementById('gameOver');
         const isGameOver = gameOverScreen && !gameOverScreen.classList.contains('hidden');
+        
+        // 갤러리 열려 있으면 Space 무시
+        if (posterGallery && !posterGallery.classList.contains('hidden')) {
+            return;
+        }
         
         if (isGameOver) {
             console.log('⌨️ Space - 게임 재시작!');
@@ -1427,12 +1796,96 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// 게임패드 연결 감지
-window.addEventListener('gamepadconnected', (e) => {
-    console.log('🎮 게임패드 연결됨:', e.gamepad.id);
-    console.log('버튼 수:', e.gamepad.buttons.length);
-    console.log('축 수:', e.gamepad.axes.length);
-});
+// 스테이지 인트로 표시
+function showStageIntro(chapter, previewOnly = false) {
+    if (!stageOverlay || !stageTitleEl || !stageSubtitleEl) return;
+    
+    const subtitles = {
+        1: '저주받은 숲',
+        2: '용이 잠들어 있는 협곡',
+        3: '얼음 마녀의 집'
+    };
+    const themes = {
+        1: { title: '#22C55E', sub: '#15803D', border: 'rgba(34,197,94,0.9)' },
+        2: { title: '#EF4444', sub: '#B91C1C', border: 'rgba(239,68,68,0.9)' },
+        3: { title: '#2563EB', sub: '#1D4ED8', border: 'rgba(37,99,235,0.9)' }
+    };
+    
+    stageTitleEl.textContent = `CHAPTER ${chapter}`;
+    stageSubtitleEl.textContent = subtitles[chapter] || '';
+    
+    const theme = themes[chapter] || themes[1];
+    if (stageBox) {
+        stageBox.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+        stageBox.style.border = `2px solid ${theme.border}`;
+        stageBox.style.boxShadow = `0 12px 32px ${theme.border}`;
+    }
+    stageTitleEl.style.color = theme.title;
+    stageSubtitleEl.style.color = theme.sub;
+    
+    stageOverlay.classList.remove('hidden');
+    
+    // 잠시 멈춤
+    const wasPaused = gameState.isPaused;
+    if (!previewOnly) {
+        gameState.isPaused = true;
+    }
+    
+    setTimeout(() => {
+        stageOverlay.classList.add('hidden');
+        if (!previewOnly) {
+            gameState.isPaused = wasPaused;
+        }
+    }, 1300);
+}
+
+// 음악 컨트롤
+function stopAllMusic() {
+    [chapter1Music, chapter2Music, chapter3Music].forEach(m => {
+        if (!m) return;
+        try {
+            m.pause();
+            m.currentTime = 0;
+        } catch (e) {
+            console.log('음악 정지 실패:', e);
+        }
+    });
+}
+
+function playMusicForChapter(chapter) {
+    stopAllMusic();
+    const target =
+        chapter === 1 ? chapter1Music :
+        chapter === 2 ? chapter2Music :
+        chapter === 3 ? chapter3Music : null;
+    if (!target) return;
+    target.loop = true;
+    target.play().catch(err => {
+        console.log('음악 재생 실패:', err);
+    });
+}
+
+function stopPortalSound() {
+    if (portalSound) {
+        try {
+            portalSound.pause();
+            portalSound.currentTime = 0;
+        } catch (e) {
+            console.log('포탈 사운드 정지 실패:', e);
+        }
+    }
+}
+
+function stopViewSound() {
+    if (viewSound) {
+        try {
+            viewSound.pause();
+            viewSound.currentTime = 0;
+        } catch (e) {
+            console.log('갤러리 사운드 정지 실패:', e);
+        }
+    }
+}
 
 window.addEventListener('gamepaddisconnected', (e) => {
     console.log('🎮 게임패드 연결 해제됨:', e.gamepad.id);
@@ -1451,8 +1904,32 @@ function checkExistingGamepads() {
     }
 }
 
-// 게임 시작
-startGame();
+// 초기 게임 화면 설정 (시작 화면에서 보이도록)
+initializeGameScreen();
+
+// START 버튼 클릭 이벤트
+startBtn.addEventListener('click', startGame);
+
+// 갤러리 버튼 이벤트
+if (galleryPrev) galleryPrev.addEventListener('click', prevGalleryItem);
+if (galleryNext) galleryNext.addEventListener('click', nextGalleryItem);
+if (galleryClose) galleryClose.addEventListener('click', hidePosterGallery);
+
+// 갤러리 키보드 이동
+document.addEventListener('keydown', (e) => {
+    if (!posterGallery || posterGallery.classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevGalleryItem();
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextGalleryItem();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hidePosterGallery();
+    }
+});
+
 // 게임패드 확인
 checkExistingGamepads();
 
